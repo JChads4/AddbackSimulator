@@ -3,6 +3,30 @@ import matplotlib.pyplot as plt
 import random
 from itertools import cycle
 
+#######################################################
+################### USER PARAMETERS ###################
+#######################################################
+
+# Parameters for random event generation
+num_events = 1000  # Number of events to generate
+max_energy = 500.0  # Maximum energy in keV
+max_time = 10000.0  # Maximum timestamp in ns
+
+# Define a coincidence window in ns
+coincidence_window = 100
+
+# Neighbours dict to map a crystal to its neighbouring ones (excluding diagonals)
+neighbours = {
+    0: [1, 2],  # 0 is only neighbor to 1 (right) and 2 (below)
+    1: [0, 3],  # 1 is only neighbor to 0 (left) and 3 (below)
+    2: [0, 3],  # 2 is only neighbor to 0 (above) and 3 (right)
+    3: [1, 2]   # 3 is only neighbor to 1 (above) and 2 (left)
+}
+
+#######################################################
+############ CLASSES & FUNCTIONS PARAMETERS ###########
+#######################################################
+
 # Define a class for the detector event
 class DetectorEvent:
     def __init__(self, crystal, energy, timestamp, position):
@@ -29,34 +53,11 @@ def generate_random_events(num_events, max_energy, max_time):
         events.append(DetectorEvent(crystal, energy, timestamp, position))
     return events
 
-
-# Parameters for random event generation
-num_events = 100  # Number of events to generate
-max_energy = 500.0  # Maximum energy in keV
-max_time = 10000.0  # Maximum timestamp in ns
-
-# Generate random events
-events = generate_random_events(num_events, max_energy, max_time)
-
-# Time order the events
-events.sort(key=lambda x: x.timestamp)
-
-# Define a coincidence window in ns
-coincidence_window = 100
-
-# Neighbours dict to map a crystal to its neighbouring ones (excluding diagonals)
-neighbours = {
-    0: [1, 2],  # 0 is only neighbor to 1 (right) and 2 (below)
-    1: [0, 3],  # 1 is only neighbor to 0 (left) and 3 (below)
-    2: [0, 3],  # 2 is only neighbor to 0 (above) and 3 (right)
-    3: [1, 2]   # 3 is only neighbor to 1 (above) and 2 (left)
-}
-
 # Add-back function that combines coincident events and returns the
 # summed energy, crystal no. with highest energy, and timestamp of that crystal.
 
 def addback(events, coincidence_window):
-    addback_events = []  # List to store add-back events
+    addback_events = []  # List to store addback events
     n = len(events)
     i = 0
 
@@ -107,28 +108,12 @@ def addback(events, coincidence_window):
 
     return addback_events
 
-
-# Perform addback
-addback_events = addback(events, coincidence_window)
-
-# Print the number of add-back events
-print(len(addback_events))
-
-# Print the results with details
-for idx, event in enumerate(addback_events):
-    print(f"Addback Event {idx + 1}:")
-    print(f"  Timestamp: {event['timestamp']} ns")
-    print(f"  Highest Energy Crystal: {event['highest_energy_crystal']}")
-    print(f"  Total Energy: {event['total_energy']} keV")
-    print("  Coincident Events:")
-    for ce in event['coincident_events']:
-        print(f"    Crystal: {ce.crystal}, Energy: {ce.energy} keV, Timestamp: {ce.timestamp} ns")
-
 # Function to plot horizontal and vertical segments for connecting events
 def plot_segments(x0, y0, x1, y1, col):
     plt.plot([x0, x1], [y0, y0], col)  # Horizontal segment
     plt.plot([x1, x1], [y0, y1], col)  # Vertical segment
 
+# Function to plot the events and add-back process
 def plot_events(events, addback_events):
     plt.figure(figsize=(12, 12))
     colors = cycle(['red', 'green', 'blue', 'cyan', 'magenta', 'yellow', 'black'])
@@ -151,12 +136,6 @@ def plot_events(events, addback_events):
     for crystal, (x0, x1, y0, y1) in quadrant_boundaries.items():
         plt.fill_betweenx([y0, y1], x0, x1, color=quadrant_colors[crystal], alpha=0.2)
 
-    # Plot individual events
-    # for event in events:
-    #     x, y = event.position  # Use position directly
-        # plt.scatter(x, y, color='gray')
-        # plt.text(x, y, f"{event.energy:.1f} keV", fontsize=9, verticalalignment='bottom')
-
     # Plot addback events
     for event in addback_events:
         color = next(colors)
@@ -164,7 +143,6 @@ def plot_events(events, addback_events):
         for ce in event['coincident_events']:
             ce_x, ce_y = ce.position
             plt.scatter(ce_x, ce_y, color='k')
-            # plt.text(ce_x, ce_y, f"{ce.energy:.1f} keV", fontsize=9, verticalalignment='top')
 
         # Draw segments connecting coincident events
         for k in range(len(event['coincident_events']) - 1):
@@ -181,9 +159,6 @@ def plot_events(events, addback_events):
     plt.grid(True)
     plt.show()
 
-# Plot the events and addback process
-plot_events(events, addback_events)
-
 # Function to plot the energy spectrum from add-back events
 def plot_energy_spectrum(addback_events):
     energies = [event['total_energy'] for event in addback_events]
@@ -191,9 +166,38 @@ def plot_energy_spectrum(addback_events):
     plt.hist(energies, bins=50, color='blue', alpha=0.7)
     plt.xlabel('Energy (keV)')
     plt.ylabel('Counts')
-    plt.title('Adddback Events')
+    plt.title('Addback Events')
     plt.grid(True)
     plt.show()
+
+#######################################################
+##################### MAIN PROGRAM ####################
+#######################################################
+
+# Generate random events
+events = generate_random_events(num_events, max_energy, max_time)
+
+# Time order the events
+events.sort(key=lambda x: x.timestamp)
+
+# Perform addback
+addback_events = addback(events, coincidence_window)
+
+# Print the number of add-back events
+print(len(addback_events))
+
+# Print the results with details
+for idx, event in enumerate(addback_events):
+    print(f"Addback Event {idx + 1}:")
+    print(f"  Timestamp: {event['timestamp']} ns")
+    print(f"  Highest Energy Crystal: {event['highest_energy_crystal']}")
+    print(f"  Total Energy: {event['total_energy']} keV")
+    print("  Coincident Events:")
+    for ce in event['coincident_events']:
+        print(f"    Crystal: {ce.crystal}, Energy: {ce.energy} keV, Timestamp: {ce.timestamp} ns")
+
+# Plot the events and addback process
+plot_events(events, addback_events)
 
 # Plot the energy spectrum
 plot_energy_spectrum(addback_events)
